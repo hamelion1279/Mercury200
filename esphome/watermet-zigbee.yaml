@@ -1,0 +1,224 @@
+# =====================================================================
+#  Zigbee-счётчик воды на ESP32-H2 Super Mini + TP4056 (HW-107) + 18650
+#  Импульсные выходы счётчиков Бетар (ХВС/ГВС), контроль заряда батареи.
+#
+#  Проверено: ESPHome 2026.6.5 — `esphome config` (valid) и
+#  `esphome compile --only-generate` (сгенерированный main.cpp сверен).
+#  Полная сборка прошивки в песочнице невозможна (закрыты CDN PlatformIO).
+# =====================================================================
+esphome:
+  name: watermet-zigbee
+  friendly_name: Zigbee Wat Met
+
+esp32:
+  # Железо — ESP32-H2 Super Mini, но PlatformIO не знает board id
+  # "esp32-h2-super-mini" (проверено: "This board is unknown"). Берём
+  # esp32-h2-devkitm-1: тот же SoC ESP32-H2, те же 4 МБ flash и
+  # USB-Serial-JTAG; нумерация GPIO — это пины SoC, она совпадает.
+  board: esp32-h2-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO          # DEBUG на батарейном устройстве — лишний ток и эфир
+
+# ---------------------------------------------------------------------
+# ПИТАНИЕ ОТ 18650 (через HW-107/TP4056) => zigbee-РОУТЕР НЕЛЬЗЯ:
+# роутер обязан держать приёмник включённым всегда (в доках ESPHome прямо:
+# "battery-powered devices should not be used as routers").
+# Если запитаете от USB/БП насовсем — верните router: true и
+# power_source: DC_SOURCE.
+# Учтите: на ESP32 у ESPHome нет спящего режима Zigbee (sleepy есть только
+# у nRF52), поэтому даже end-device не спит; 18650 хватит на дни-недели,
+# а не на месяцы (оценка, токи не измерялись).
+# ---------------------------------------------------------------------
+zigbee:
+  router: false
+  power_source: BATTERY
+
+substitutions:
+  # Бетар Ду15: обычно 1 импульс = 10 л => 1 м3 = 100 импульсов.
+  # СВЕРЬТЕ С ПАСПОРТОМ СВОИХ СЧЁТЧИКОВ!
+  litres_per_m3_pulse: "0.01"
+
+sensor:
+  # ---------------- 1. ХОЛОДНАЯ ВОДА (ХВС) ----------------
+  # GPIO14 — свободен на Super Mini. (GPIO13/14 у H2 = XTAL_32K_N/P, но
+  # на Super Mini часовой кварц не распаян, пины работают как GPIO.)
+  - platform: pulse_counter
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: true
+    id: cold_water_counter
+    name: "Cold Water"          # латиница: в Zigbee-описание идёт только ASCII
+    update_interval: 60s
+    accuracy_decimals: 1
+    # Антидребезг геркона: аппаратный PCNT умеет максимум 13 мкс, поэтому
+    # PCNT отключаем и фильтруем программно (150 мс).
+    use_pcnt: false
+    internal_filter: 150ms
+    total:
+      id: cold_water_total
+      name: "Cold Water Total"
+      unit_of_measurement: "m³"
+      device_class: water
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: ${litres_per_m3_pulse}   # импульсы -> м3
+      # ВАЖНО: total не сохраняется во flash — это счётчик сессии.
+      # История выживает только в long-term statistics Home Assistant.
+
+  # ---------------- 2. ГОРЯЧАЯ ВОДА (ГВС) ----------------
+  # GPIO12 вместо GPIO13: на Super Mini GPIO13 занят onboard-синим LED,
+  # а GPIO8 — WS2812. Не используйте их как входы!
+  - platform: pulse_counter
+    pin:
+      number: GPIO12
+      mode: INPUT_PULLUP
+      inverted: true
+    id: hot_water_counter
+    name: "Hot Water"
+    update_interval: 60s
+    accuracy_decimals: 1
+    use_pcnt: false
+    internal_filter: 150ms
+    total:
+      id: hot_water_total
+      name: "Hot Water Total"
+      unit_of_measurement: "m³"
+      device_class: water
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: ${litres_per_m3_pulse}
+
+  # ---------------- 3. НАПРЯЖЕНИЕ 18650 ----------------
+  # Делитель 1:1 (два одинаковых резистора) с B+ батареи на GPIO1 и GND.
+  # 4.20 В батареи => 2.10 В на пине.
+  - platform: adc
+    pin: GPIO1                  # ADC1_CH0
+    id: battery_voltage
+    name: "Battery Voltage"
+    update_interval: 300s
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    attenuation: 12db           # БЕЗ ЭТОГО на ESP32 по умолчанию 0dB = 0..~1.1 В
+    samples: 8                  # и 2.10 В упрутся в потолок АЦП
+    sampling_mode: avg
+    filters:
+      - multiply: 2.0           # компенсируем делитель 1:1
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 1
+      # После прошивки сверьте показания с мультиметром и при необходимости
+      # замените multiply: 2.0 на калибровку по двум реальным точкам:
+      # - calibrate_linear:
+      #     method: least_squares
+      #     datapoints:
+      #       - 3.40 -> 3.52
+      #       - 4.10 -> 4.18
+    on_value:
+      then:
+        - lambda: |-
+            float v = x;
+            float pct;
+            if (v >= 4.20)      pct = 100.0;
+            else if (v <= 3.20) pct = 0.0;
+            else                pct = (v - 3.20) / (4.20 - 3.20) * 100.0;
+            id(battery_level).publish_state(pct);
+
+  # ---------------- 4. ЗАРЯД В % ----------------
+  # Линейная аппроксимация для Li-ion грубая (кривая разряда плоская
+  # в районе 3.6-3.9 В) — для точности нужна таблица или кулонометр.
+  - platform: template
+    id: battery_level
+    name: "Battery"
+    device_class: battery
+    state_class: measurement
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never      # значение приходит из on_value АЦП выше
+
+# ---------------------------------------------------------------------
+# Кнопка BOOT = GPIO9 (стрapping-пин, ESPHome предупреждает — это норма).
+# ---------------------------------------------------------------------
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO9
+      mode: INPUT_PULLUP
+      inverted: true
+    id: boot_button
+    filters:
+      - delayed_on: 20ms
+      - delayed_off: 20ms
+    on_click:
+      # Удержание 5-15 с — сброс сети Zigbee (перепривязка к координатору).
+      - min_length: 5s
+        max_length: 15s
+        then:
+          - logger.log: "BOOT held 5s - Zigbee factory reset"
+          - zigbee.factory_reset:
+      # Удержание 20-40 с — обнулить оба накопительных счётчика
+      # (замена виртуальных кнопок: они по Zigbee недоступны, см. README).
+      - min_length: 20s
+        max_length: 40s
+        then:
+          - pulse_counter.set_total_pulses:
+              id: cold_water_counter
+              value: 0
+          - pulse_counter.set_total_pulses:
+              id: hot_water_counter
+              value: 0
+          - logger.log: "Pulse totals reset to 0"
+
+# ---------------------------------------------------------------------
+# Виртуальные кнопки. У ESP32 по Zigbee наружу отдаются ТОЛЬКО sensor
+# (analog_input) и binary_sensor (binary_input); button в сеть не едет,
+# а api/ota/mqtt на H2 не поднять (нет Wi-Fi). Поэтому из Home Assistant
+# эти кнопки недоступны — они работают только при отладке по USB.
+# Основные действия продублированы удержанием BOOT выше.
+# ---------------------------------------------------------------------
+button:
+  - platform: template
+    name: "Reset Cold Pulses"
+    id: reset_cold
+    entity_category: config
+    on_press:
+      then:
+        - pulse_counter.set_total_pulses:
+            id: cold_water_counter
+            value: 0
+
+  - platform: template
+    name: "Reset Hot Pulses"
+    id: reset_hot
+    entity_category: config
+    on_press:
+      then:
+        - pulse_counter.set_total_pulses:
+            id: hot_water_counter
+            value: 0
+
+  - platform: template
+    name: "Reset Zigbee Network"
+    id: reset_zigbee
+    icon: mdi:router-wireless-settings
+    entity_category: config
+    on_press:
+      then:
+        - zigbee.factory_reset:
+
+# ---------------------------------------------------------------------
+# Необязательно: onboard-синий LED (GPIO13) как индикатор статуса.
+# Мигает при ошибках/отсутствии сети, редко мигает когда всё хорошо.
+# На батарейном устройстве можно закомментировать ради экономии.
+# ---------------------------------------------------------------------
+# status_led:
+#   pin:
+#     number: GPIO13
+#     inverted: true
