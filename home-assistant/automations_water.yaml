@@ -32,7 +32,7 @@
       data:
         value: >
           {{ (states('input_text.correct_cold_water') | float(0))
-             - (states('sensor.cold_water_total') | float(0))
+             - (states('sensor.watermet_zigbee_cold_water_total') | float(0))
              - (states('input_number.water_sim_offset_cold') | float(0)) }}
     - service: input_number.set_value
       target:
@@ -40,7 +40,7 @@
       data:
         value: >
           {{ (states('input_text.correct_hot_water') | float(0))
-             - (states('sensor.hot_water_total') | float(0))
+             - (states('sensor.watermet_zigbee_hot_water_total') | float(0))
              - (states('input_number.water_sim_offset_hot') | float(0)) }}
 
 # --- Лог расчётного периода в таблицу -------------------------------

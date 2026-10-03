@@ -1,9 +1,10 @@
 # =====================================================================
 #  Дашборд «Учёт воды» (Lovelace, YAML-режим страницы).
 #  Все упомянутые сущности определены в configuration_water.yaml и
-#  scripts_water_sim.yaml. sensor.battery / sensor.battery_voltage —
-#  это имена из прошивки; реальные entity_id после сопряжения смотрите
-#  в ZHA/Z2M и при необходимости поправьте.
+#  scripts_water_sim.yaml. Батарейные карточки ссылаются на entity_id,
+#  которые создаёт Zigbee2MQTT из имён прошивки ("Battery", "Battery
+#  Voltage"): sensor.watermet_zigbee_battery / _battery_voltage.
+#  Если у вас они отличаются — поправьте обе строки ниже.
 # =====================================================================
 views:
   - type: sections
@@ -34,9 +35,9 @@ views:
                 name: Горячая вода итого
               - type: section
                 label: '4. Питание платы ESP32-H2:'
-              - entity: sensor.battery
+              - entity: sensor.watermet_zigbee_battery
                 name: Заряд аккумулятора 18650
-              - entity: sensor.battery_voltage
+              - entity: sensor.watermet_zigbee_battery_voltage
                 name: Напряжение на банке
               - type: section
                 label: '5. Эмуляция расхода (только для проверки):'

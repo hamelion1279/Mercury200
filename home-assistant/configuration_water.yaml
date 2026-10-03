@@ -2,11 +2,17 @@
 #  Учёт воды в Home Assistant — дополнение к configuration.yaml
 #  (input_* + template-сенсоры + utility_meter + таблица)
 #
-#  ВАЖНО про entity_id датчиков с платы: после сопряжения в ZHA/Z2M
-#  идентификаторы могут отличаться от sensor.cold_water_total и т.п.
-#  (ZHA строит их из имени устройства/эндпоинта). Откройте
-#  Настройки → Устройства → watermet-zigbee, посмотрите реальные
-#  entity_id и при необходимости поправьте в двух template-сенсорах ниже.
+#  ВАЖНО про entity_id датчиков с платы. Вы используете Zigbee2MQTT
+#  (координатор SONOFF ZBDongle-E), а не ZHA: Z2M создаёт entity_id
+#  как sensor.<имя_устройства>_<имя_сенсора_из_прошивки>:
+#    прошивка даёт "Cold Water Total" -> sensor.watermet_zigbee_cold_water_total
+#  Ниже подставлены именно такие идентификаторы. Если у вас они
+#  отличаются — смотрите Настройки → Устройства → watermet-zigbee и
+#  правьте в двух template-сенсорах и в автоматизации кнопки.
+#
+#  Если на вкладке Z2M видны имена XOL/GOR/VOLT/BAT — на плате стоит
+#  СТАРАЯ прошивка: прошейте esphome/watermet-zigbee.yaml из репозитория,
+#  иначе накопительных сенсоров в м³ (total) в сети просто нет.
 # =====================================================================
 
 # 1. Текстовые поля ввода и кнопка фиксации для дашборда
@@ -112,7 +118,7 @@ template:
         icon: mdi:water
         state: >
           {% set base = states('input_number.saved_cold_base') | float(0) %}
-          {% set pulses = states('sensor.cold_water_total') | float(0) %}
+          {% set pulses = states('sensor.watermet_zigbee_cold_water_total') | float(0) %}
           {% set sim = states('input_number.water_sim_offset_cold') | float(0) %}
           {{ (base + pulses + sim) | round(3) }}
       - name: "Реальные показания ГВС (Бетар)"
@@ -122,7 +128,7 @@ template:
         icon: mdi:water_hot
         state: >
           {% set base = states('input_number.saved_hot_base') | float(0) %}
-          {% set pulses = states('sensor.hot_water_total') | float(0) %}
+          {% set pulses = states('sensor.watermet_zigbee_hot_water_total') | float(0) %}
           {% set sim = states('input_number.water_sim_offset_hot') | float(0) %}
           {{ (base + pulses + sim) | round(3) }}
 
