@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600" viewBox="0 0 1000 600">
+  <rect x="0" y="0" width="1000" height="600" fill="white"/>
+  <text x="500" y="38" font-family="DejaVu Sans, Arial" font-size="22" text-anchor="middle" fill="#111">Измерение напряжения 18650 — делитель 1:1 на GPIO1 (ADC1_CH0)</text>
+
+  <!-- battery -->
+  <line x1="90" y1="170" x2="90" y2="120" stroke="#111" stroke-width="3"/>
+  <line x1="60" y1="170" x2="120" y2="170" stroke="#111" stroke-width="4"/>
+  <line x1="75" y1="186" x2="105" y2="186" stroke="#111" stroke-width="4"/>
+  <line x1="90" y1="186" x2="90" y2="470" stroke="#111" stroke-width="3"/>
+  <text x="55" y="150" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="end" fill="#111">18650</text>
+  <text x="55" y="210" font-family="DejaVu Sans, Arial" font-size="15" text-anchor="end" fill="#444">3,0–4,2 В</text>
+  <text x="100" y="140" font-family="DejaVu Sans, Arial" font-size="16" fill="#111">B+</text>
+
+  <!-- top rail to R1 -->
+  <line x1="90" y1="120" x2="330" y2="120" stroke="#111" stroke-width="3"/>
+  <rect x="330" y="105" width="80" height="30" fill="white" stroke="#111" stroke-width="3"/>
+  <text x="370" y="95" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="middle" fill="#111">R1 100 k</text>
+
+  <!-- R1 to node A to ESP32 -->
+  <line x1="410" y1="120" x2="760" y2="120" stroke="#111" stroke-width="3"/>
+  <circle cx="520" cy="120" r="5" fill="#111"/>
+  <circle cx="640" cy="120" r="5" fill="#111"/>
+  <text x="700" y="105" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="middle" fill="#111">GPIO1 (ADC1_CH0)</text>
+
+  <!-- R2 vertical -->
+  <line x1="520" y1="120" x2="520" y2="190" stroke="#111" stroke-width="3"/>
+  <rect x="505" y="190" width="30" height="80" fill="white" stroke="#111" stroke-width="3"/>
+  <text x="495" y="235" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="end" fill="#111">R2 100 k</text>
+  <line x1="520" y1="270" x2="520" y2="470" stroke="#111" stroke-width="3"/>
+
+  <!-- C1 vertical -->
+  <line x1="640" y1="120" x2="640" y2="220" stroke="#111" stroke-width="3"/>
+  <line x1="618" y1="220" x2="662" y2="220" stroke="#111" stroke-width="4"/>
+  <line x1="618" y1="234" x2="662" y2="234" stroke="#111" stroke-width="4"/>
+  <line x1="640" y1="234" x2="640" y2="470" stroke="#111" stroke-width="3"/>
+  <text x="652" y="205" font-family="DejaVu Sans, Arial" font-size="16" fill="#111">C1 100 nF</text>
+
+  <!-- ESP32 box -->
+  <rect x="760" y="70" width="220" height="230" fill="#f5f5f5" stroke="#111" stroke-width="3"/>
+  <text x="870" y="160" font-family="DejaVu Sans, Arial" font-size="20" text-anchor="middle" fill="#111">ESP32-H2</text>
+  <text x="870" y="186" font-family="DejaVu Sans, Arial" font-size="18" text-anchor="middle" fill="#111">Super Mini</text>
+  <text x="772" y="112" font-family="DejaVu Sans, Arial" font-size="14" fill="#111">GPIO1</text>
+  <text x="772" y="252" font-family="DejaVu Sans, Arial" font-size="14" fill="#111">GND</text>
+  <line x1="760" y1="240" x2="760" y2="470" stroke="#111" stroke-width="3"/>
+
+  <!-- ground rail -->
+  <line x1="60" y1="470" x2="800" y2="470" stroke="#111" stroke-width="3"/>
+  <line x1="400" y1="470" x2="400" y2="482" stroke="#111" stroke-width="3"/>
+  <line x1="370" y1="482" x2="430" y2="482" stroke="#111" stroke-width="4"/>
+  <line x1="380" y1="494" x2="420" y2="494" stroke="#111" stroke-width="4"/>
+  <line x1="390" y1="506" x2="410" y2="506" stroke="#111" stroke-width="4"/>
+  <text x="440" y="500" font-family="DejaVu Sans, Arial" font-size="15" fill="#444">GND (общий)</text>
+
+  <!-- formulas -->
+  <text x="60" y="550" font-family="DejaVu Sans, Arial" font-size="17" fill="#111">V(GPIO1) = V(BAT) * R2/(R1+R2) = V(BAT)/2 :   4,20 В -&gt; 2,10 В</text>
+  <text x="60" y="578" font-family="DejaVu Sans, Arial" font-size="15" fill="#444">Прошивка: attenuation: 12db, multiply: 2.0 | ток делителя ~21 мкА | резисторы ±1%</text>
+</svg>
