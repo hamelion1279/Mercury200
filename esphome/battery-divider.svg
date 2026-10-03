@@ -7,8 +7,8 @@
   <line x1="60" y1="170" x2="120" y2="170" stroke="#111" stroke-width="4"/>
   <line x1="75" y1="186" x2="105" y2="186" stroke="#111" stroke-width="4"/>
   <line x1="90" y1="186" x2="90" y2="470" stroke="#111" stroke-width="3"/>
-  <text x="55" y="150" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="end" fill="#111">18650</text>
-  <text x="55" y="210" font-family="DejaVu Sans, Arial" font-size="15" text-anchor="end" fill="#444">3,0–4,2 В</text>
+  <text x="130" y="155" font-family="DejaVu Sans, Arial" font-size="16" fill="#111">18650</text>
+  <text x="130" y="210" font-family="DejaVu Sans, Arial" font-size="15" fill="#444">3,0–4,2 В</text>
   <text x="100" y="140" font-family="DejaVu Sans, Arial" font-size="16" fill="#111">B+</text>
 
   <!-- top rail to R1 -->
@@ -20,7 +20,7 @@
   <line x1="410" y1="120" x2="760" y2="120" stroke="#111" stroke-width="3"/>
   <circle cx="520" cy="120" r="5" fill="#111"/>
   <circle cx="640" cy="120" r="5" fill="#111"/>
-  <text x="700" y="105" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="middle" fill="#111">GPIO1 (ADC1_CH0)</text>
+  <text x="585" y="102" font-family="DejaVu Sans, Arial" font-size="16" text-anchor="middle" fill="#111">GPIO1 (ADC1_CH0)</text>
 
   <!-- R2 vertical -->
   <line x1="520" y1="120" x2="520" y2="190" stroke="#111" stroke-width="3"/>
