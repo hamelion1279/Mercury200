@@ -1,0 +1,77 @@
+# =====================================================================
+#  Дашборд «Учёт воды» (Lovelace, YAML-режим страницы).
+#  Все упомянутые сущности определены в configuration_water.yaml и
+#  scripts_water_sim.yaml. sensor.battery / sensor.battery_voltage —
+#  это имена из прошивки; реальные entity_id после сопряжения смотрите
+#  в ZHA/Z2M и при необходимости поправьте.
+# =====================================================================
+views:
+  - type: sections
+    title: Учет воды
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: 💧 Корректировка счётчиков
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - type: section
+                label: '1. Цифры с табло в ванной:'
+              - entity: input_text.correct_cold_water
+                name: Ввод ХВС (Холодная)
+              - entity: input_text.correct_hot_water
+                name: Ввод ГВС (Горячая)
+              - type: section
+                label: '2. Применить изменения:'
+              - entity: input_button.apply_water_readings
+                name: Нажмите для фиксации
+              - type: section
+                label: '3. Состояние в кубах в системе:'
+              - entity: sensor.realnye_pokazaniia_khvs_betar
+                name: Холодная вода итого
+              - entity: sensor.realnye_pokazaniia_gvs_betar
+                name: Горячая вода итого
+              - type: section
+                label: '4. Питание платы ESP32-H2:'
+              - entity: sensor.battery
+                name: Заряд аккумулятора 18650
+              - entity: sensor.battery_voltage
+                name: Напряжение на банке
+              - type: section
+                label: '5. Эмуляция расхода (только для проверки):'
+              - entity: input_number.water_sim_cold_step
+                name: Шаг ХВС, м³
+              - entity: input_number.water_sim_hot_step
+                name: Шаг ГВС, м³
+              - entity: input_number.water_sim_steps
+                name: Сколько шагов в серии
+              - entity: input_number.water_sim_interval
+                name: Пауза между шагами, с
+              - entity: script.simulate_water_step
+                name: Один шаг
+                type: button
+              - entity: script.voda_emuliatsiia_raskhoda_seriia_shagov
+                name: Старт серии
+                type: button
+              - entity: input_boolean.water_sim_running
+                name: СТОП
+                type: button
+
+          - type: markdown
+            title: 📊 Таблица учёта воды (помесячно)
+            content: >-
+              | Месяц (15 число) | ХВС Расход | ГВС Расход |
+
+              | :--- | :--- | :--- |
+
+              {% set data = state_attr('sensor.tablitsa_ucheta_vody_pomesiachno', 'table') %}
+              {% if data is not none and data is iterable %}
+                {% for row in data %}
+
+                  | {{ row.date }} | {{ row.cold }} м³ | {{ row.hot }} м³ |
+                {% endfor %}
+              {% else %}
+
+                | Данные за расчетный период еще не сформированы | | |
+              {% endif %}

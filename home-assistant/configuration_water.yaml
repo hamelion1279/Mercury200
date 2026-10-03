@@ -1,0 +1,151 @@
+# =====================================================================
+#  Учёт воды в Home Assistant — дополнение к configuration.yaml
+#  (input_* + template-сенсоры + utility_meter + таблица)
+#
+#  ВАЖНО про entity_id датчиков с платы: после сопряжения в ZHA/Z2M
+#  идентификаторы могут отличаться от sensor.cold_water_total и т.п.
+#  (ZHA строит их из имени устройства/эндпоинта). Откройте
+#  Настройки → Устройства → watermet-zigbee, посмотрите реальные
+#  entity_id и при необходимости поправьте в двух template-сенсорах ниже.
+# =====================================================================
+
+# 1. Текстовые поля ввода и кнопка фиксации для дашборда
+input_text:
+  correct_cold_water:
+    name: "Ввод кубов ХВС"
+    initial: "0.0"
+  correct_hot_water:
+    name: "Ввод кубов ГВС"
+    initial: "0.0"
+  # Хранилище таблицы (JSON, держим последние 4 строки — лимит 255 символов).
+  # Полная история всё равно живёт в long-term statistics.
+  water_table_json:
+    name: "Таблица учёта (JSON)"
+    initial: "[]"
+    max: 255
+
+input_button:
+  apply_water_readings:
+    name: "Ввести показания"
+    icon: mdi:check-bold
+
+# 2. Виртуальная энергонезависимая память Home Assistant
+input_number:
+  saved_cold_base:
+    min: -99999
+    max: 99999
+    step: 0.001
+    mode: box
+  saved_hot_base:
+    min: -99999
+    max: 99999
+    step: 0.001
+    mode: box
+
+  # --- служебные для эмулятора расхода ---
+  water_sim_offset_cold:
+    name: "Симуляция ХВС (накоплено)"
+    min: 0
+    max: 99999
+    step: 0.001
+    mode: box
+    initial: 0
+  water_sim_offset_hot:
+    name: "Симуляция ГВС (накоплено)"
+    min: 0
+    max: 99999
+    step: 0.001
+    mode: box
+    initial: 0
+  water_sim_counter:
+    name: "Симуляция: счётчик шагов"
+    min: 0
+    max: 99999
+    step: 1
+    mode: box
+    initial: 0
+
+  # --- видимые на дашборде параметры эмулятора ---
+  water_sim_cold_step:
+    name: "Шаг ХВС, м³"
+    min: 0.001
+    max: 1
+    step: 0.001
+    mode: box
+    initial: 0.01
+  water_sim_hot_step:
+    name: "Шаг ГВС, м³"
+    min: 0
+    max: 1
+    step: 0.001
+    mode: box
+    initial: 0.01
+  water_sim_steps:
+    name: "Сколько шагов в серии"
+    min: 1
+    max: 1000
+    step: 1
+    mode: box
+    initial: 10
+  water_sim_interval:
+    name: "Пауза между шагами, с"
+    min: 1
+    max: 3600
+    step: 1
+    mode: box
+    initial: 2
+
+input_boolean:
+  water_sim_running:
+    name: "Симуляция идёт (СТОП)"
+    icon: mdi:stop-circle
+
+# 3. Финальные сенсоры в кубических метрах.
+#    real = base (введённые кубы) + импульсы сессии + эмуляция.
+#    Плата НЕ перезагружается: базу пересчитывает автоматизация кнопки.
+template:
+  - sensor:
+      - name: "Реальные показания ХВС (Бетар)"
+        unit_of_measurement: "m³"
+        device_class: water
+        state_class: total_increasing
+        icon: mdi:water
+        state: >
+          {% set base = states('input_number.saved_cold_base') | float(0) %}
+          {% set pulses = states('sensor.cold_water_total') | float(0) %}
+          {% set sim = states('input_number.water_sim_offset_cold') | float(0) %}
+          {{ (base + pulses + sim) | round(3) }}
+      - name: "Реальные показания ГВС (Бетар)"
+        unit_of_measurement: "m³"
+        device_class: water
+        state_class: total_increasing
+        icon: mdi:water_hot
+        state: >
+          {% set base = states('input_number.saved_hot_base') | float(0) %}
+          {% set pulses = states('sensor.hot_water_total') | float(0) %}
+          {% set sim = states('input_number.water_sim_offset_hot') | float(0) %}
+          {{ (base + pulses + sim) | round(3) }}
+
+      # Таблица помесячно: строки добавляет автоматизация 14-го числа в 23:55.
+      - name: "Таблица учёта воды помесячно"
+        icon: mdi:table
+        state: "{{ now().strftime('%Y-%m-%d') }}"
+        attributes:
+          table: >
+            {% set raw = states('input_text.water_table_json') %}
+            {{ (raw | from_json) if raw not in ['unknown','unavailable',''] else [] }}
+
+# 4. Ежемесячные накопители со сбросом каждого 15-го числа
+utility_meter:
+  monthly_water_cold:
+    source: sensor.realnye_pokazaniia_khvs_betar
+    name: "ХВС за расчетный месяц"
+    cycle: monthly
+    offset:
+      days: 14
+  monthly_water_hot:
+    source: sensor.realnye_pokazaniia_gvs_betar
+    name: "ГВС за расчетный месяц"
+    cycle: monthly
+    offset:
+      days: 14

@@ -1,0 +1,70 @@
+# =====================================================================
+#  Автоматизации учёта воды. Путь: Настройки → Автоматизации →
+#  (каждую можно держать отдельным файлом через packages, или вставить
+#  списком в automation: конфигурации)
+# =====================================================================
+
+# --- Кнопка «Ввести показания» -------------------------------------
+# БЕЗ перезагрузки платы! Команда zha.issue_zigbee_cluster_command
+# (cluster 0, command 0) — это ZCL «Reset to Factory Defaults»: в стеке
+# ESPHome/Espressif leave-with-reset вызывает esp_zb_factory_reset()
+# (см. zigbee_esp32.cpp), т.е. плата СТИРАЕТ сеть и выпадает из ZHA —
+# после каждого нажатия пришлось бы пересопрягать устройство.
+#
+# Вместо этого пересчитываем базу на стороне HA:
+#   base_new = введённое_табло - текущие_импульсы_сессии - симуляция
+# Тогда «Реальные показания» в момент нажатия становятся равны
+# введённому числу, а дальше продолжают тикать от импульсов.
+# Цена: если плату перезагрузят случайно (села/меняли батарею),
+# счётчик сессии обнулится и показания просядут на величину сессии —
+# лечится повторным нажатием кнопки с актуальными цифрами табло.
+- id: water_apply_readings
+  alias: "Вода: применение новых показаний с дашборда"
+  description: "Фиксирует введённые кубы пересчётом базы, без ребута платы"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: input_button.apply_water_readings
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.saved_cold_base
+      data:
+        value: >
+          {{ (states('input_text.correct_cold_water') | float(0))
+             - (states('sensor.cold_water_total') | float(0))
+             - (states('input_number.water_sim_offset_cold') | float(0)) }}
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.saved_hot_base
+      data:
+        value: >
+          {{ (states('input_text.correct_hot_water') | float(0))
+             - (states('sensor.hot_water_total') | float(0))
+             - (states('input_number.water_sim_offset_hot') | float(0)) }}
+
+# --- Лог расчётного периода в таблицу -------------------------------
+# 14-го в 23:55 (незадолго до сброса utility_meter в 00:00 15-го)
+# кладём строку {date, cold, hot} в input_text.water_table_json.
+# Держим последние 4 строки, чтобы уместиться в 255 символов.
+- id: water_month_log
+  alias: "Вода: запись месяца в таблицу (14 число, 23:55)"
+  mode: single
+  trigger:
+    - platform: time
+      at: "23:55:00"
+  condition:
+    - condition: template
+      value_template: "{{ now().day == 14 }}"
+  action:
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.water_table_json
+      data:
+        value: >
+          {% set old = states('input_text.water_table_json') | from_json %}
+          {% set row = {
+            'date': (now() + timedelta(days=1)).strftime('%Y-%m'),
+            'cold': states('sensor.monthly_water_cold') | float(0) | round(3),
+            'hot':  states('sensor.monthly_water_hot')  | float(0) | round(3) } %}
+          {{ ([row] + old)[:4] | to_json }}
