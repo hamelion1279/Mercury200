@@ -16,6 +16,9 @@ jobs:
     name: build (ESP-IDF ${{ matrix.idf }})
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
