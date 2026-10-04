@@ -5,7 +5,6 @@ on:
     paths:
       - 'esp32/wifi-repeater/**'
       - '.github/workflows/firmware.yml'
-      - '!**/*.md'
   pull_request:
     paths:
       - 'esp32/wifi-repeater/**'
@@ -27,15 +26,17 @@ jobs:
       - name: Build repeater firmware
         working-directory: esp32/wifi-repeater
         run: |
+          . $IDF_PATH/export.sh
           idf.py set-target esp32s3
           idf.py build
 
       - name: Merge into single flashable image
         if: matrix.idf == 'release-v5.5'
-        working-directory: esp32/wifi-repeater/build
+        working-directory: esp32/wifi-repeater
         run: |
-          esptool.py --chip esp32s3 merge_bin -o ../esp32s3-wifi-repeater-merged.bin @flash_args
-          ls -l ../esp32s3-wifi-repeater-merged.bin
+          . $IDF_PATH/export.sh
+          idf.py merge-bin -o esp32s3-wifi-repeater-merged.bin
+          ls -l esp32s3-wifi-repeater-merged.bin
 
       - name: Upload firmware binaries
         if: matrix.idf == 'release-v5.5'
