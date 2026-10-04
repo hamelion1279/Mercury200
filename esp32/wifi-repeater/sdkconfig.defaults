@@ -20,6 +20,13 @@ CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
 CONFIG_ESP_WIFI_TX_BA_WIN=16
 CONFIG_ESP_WIFI_RX_BA_WIN=16
 
+# ---- Таблица разделов: приложению отдаём 2 МБ (см. partitions.csv) ----
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# ---- Размер flash микросхемы (у большинства плат S3 — 4, 8 или 16 МБ) ----
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
 # ---- Логи ----
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 
