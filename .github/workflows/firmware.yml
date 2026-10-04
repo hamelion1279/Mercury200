@@ -45,7 +45,8 @@ jobs:
         run: |
           . $IDF_PATH/export.sh
           idf.py merge-bin -o esp32s3-wifi-repeater-merged.bin
-          ls -l esp32s3-wifi-repeater-merged.bin
+          # idf.py кладёт объединённый образ в каталог build/
+          ls -l build/esp32s3-wifi-repeater-merged.bin
 
       - name: Upload firmware binaries
         if: matrix.idf == 'release-v5.5'
@@ -53,7 +54,7 @@ jobs:
         with:
           name: esp32s3-wifi-repeater-firmware
           path: |
-            esp32/wifi-repeater/esp32s3-wifi-repeater-merged.bin
+            esp32/wifi-repeater/build/esp32s3-wifi-repeater-merged.bin
             esp32/wifi-repeater/build/wifi-repeater.bin
             esp32/wifi-repeater/build/bootloader/bootloader.bin
             esp32/wifi-repeater/build/partition_table/partition-table.bin
