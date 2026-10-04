@@ -27,8 +27,17 @@ jobs:
         working-directory: esp32/wifi-repeater
         run: |
           . $IDF_PATH/export.sh
-          idf.py set-target esp32s3
-          idf.py build
+          set -o pipefail
+          { idf.py set-target esp32s3 && idf.py build; } 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # Ошибки сборки дублируем в аннотацию — так их видно прямо в интерфейсе GitHub
+            msg=$(grep -aE "error:|FAILED|Error|undefined reference|too small|No such file" build.log | head -n 30 | tr -d '\r' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            [ -n "$msg" ] || msg="подробности в логе задания"
+            echo "::error title=Build failed (ESP-IDF ${{ matrix.idf }})::${msg}"
+            exit "$status"
+          fi
+          grep -aE "^Total image size|^Project build complete" build.log | tail -n 3
 
       - name: Merge into single flashable image
         if: matrix.idf == 'release-v5.5'

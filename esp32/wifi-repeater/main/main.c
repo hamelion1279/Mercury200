@@ -85,6 +85,13 @@
 #define UPSTREAM_AUTHMODE WIFI_AUTH_WPA2_PSK
 #endif
 
+/* Логические опции Kconfig: если опция выключена, её макрос не определён вовсе */
+#ifdef CONFIG_REPEATER_AP_HIDDEN
+#define AP_HIDDEN 1
+#else
+#define AP_HIDDEN 0
+#endif
+
 /* DHCP-опция 6: «выдать клиенту адрес DNS-сервера» */
 #define DHCPS_OFFER_DNS 0x02
 
@@ -261,7 +268,7 @@ static void repeater_apply_ap_config(void)
     cfg.ap.ssid_len = strlen(s_ctx.ap_ssid);
     cfg.ap.channel = channel;
     cfg.ap.max_connection = AP_MAX_STA;
-    cfg.ap.ssid_hidden = CONFIG_REPEATER_AP_HIDDEN;
+    cfg.ap.ssid_hidden = AP_HIDDEN;
     cfg.ap.pmf_cfg.capable = true;   /* совместимость с WPA3-клиентами */
     cfg.ap.pmf_cfg.required = false;
 
