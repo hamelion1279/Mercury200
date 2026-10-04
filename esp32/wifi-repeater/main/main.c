@@ -154,6 +154,33 @@ static wifi_ap_record_t s_scan_records[SCAN_MAX_AP];
 
 /* ============================ вспомогательное ============================ */
 
+/* Копирование строки в буфер фиксированной длины с обрезкой и нулём в конце */
+static void str_copy(char *dst, size_t dst_size, const char *src)
+{
+    size_t len = strlen(src);
+    if (len > dst_size - 1) {
+        len = dst_size - 1;
+    }
+    memcpy(dst, src, len);
+    dst[len] = '\0';
+}
+
+/* Дописать строку в конец (если осталось место) */
+static void str_append(char *dst, size_t dst_size, const char *suffix)
+{
+    size_t len = strlen(dst);
+    if (len >= dst_size - 1) {
+        return;
+    }
+    size_t room = dst_size - 1 - len;
+    size_t n = strlen(suffix);
+    if (n > room) {
+        n = room;
+    }
+    memcpy(dst + len, suffix, n);
+    dst[len + n] = '\0';
+}
+
 /* Строка "AA:BB:CC:DD:EE:FF" -> 6 байт */
 static bool mac_from_string(const char *str, uint8_t out[6])
 {
@@ -253,9 +280,10 @@ static void repeater_apply_ap_config(void)
 {
     /* Имя своей сети: из menuconfig либо "<внешняя сеть>-EXT" */
     if (AP_SSID_CFG[0] != '\0') {
-        snprintf(s_ctx.ap_ssid, sizeof(s_ctx.ap_ssid), "%s", AP_SSID_CFG);
+        str_copy(s_ctx.ap_ssid, sizeof(s_ctx.ap_ssid), AP_SSID_CFG);
     } else {
-        snprintf(s_ctx.ap_ssid, sizeof(s_ctx.ap_ssid), "%s-EXT", UPSTREAM_SSID);
+        str_copy(s_ctx.ap_ssid, sizeof(s_ctx.ap_ssid), UPSTREAM_SSID);
+        str_append(s_ctx.ap_ssid, sizeof(s_ctx.ap_ssid), "-EXT");
     }
 
     /* Канал: канал внешней сети, если он известен, иначе — заданный в menuconfig */
@@ -263,8 +291,8 @@ static void repeater_apply_ap_config(void)
                                                     : (uint8_t)(AP_CHANNEL_CFG ? AP_CHANNEL_CFG : 1);
 
     wifi_config_t cfg = { 0 };
-    snprintf((char *)cfg.ap.ssid, sizeof(cfg.ap.ssid), "%s", s_ctx.ap_ssid);
-    snprintf((char *)cfg.ap.password, sizeof(cfg.ap.password), "%s", AP_PASSWORD);
+    str_copy((char *)cfg.ap.ssid, sizeof(cfg.ap.ssid), s_ctx.ap_ssid);
+    str_copy((char *)cfg.ap.password, sizeof(cfg.ap.password), AP_PASSWORD);
     cfg.ap.ssid_len = strlen(s_ctx.ap_ssid);
     cfg.ap.channel = channel;
     cfg.ap.max_connection = AP_MAX_STA;
@@ -363,8 +391,8 @@ static void repeater_apply_sta_config(void)
 {
     wifi_config_t cfg = { 0 };
 
-    snprintf((char *)cfg.sta.ssid, sizeof(cfg.sta.ssid), "%s", UPSTREAM_SSID);
-    snprintf((char *)cfg.sta.password, sizeof(cfg.sta.password), "%s", UPSTREAM_PASSWORD);
+    str_copy((char *)cfg.sta.ssid, sizeof(cfg.sta.ssid), UPSTREAM_SSID);
+    str_copy((char *)cfg.sta.password, sizeof(cfg.sta.password), UPSTREAM_PASSWORD);
 
     /*
      * Если канал известен — ищем только на нём (подключение быстрее),
