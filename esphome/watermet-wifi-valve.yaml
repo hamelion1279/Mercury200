@@ -1,0 +1,144 @@
+# =====================================================================
+#  НОВЫЙ ПЛАН (2026-10): Wemos D1 mini (ESP8266) + Battery Shield.
+#  Два импульсных входа (счётчики ХВС/ГВС) + один выход на шаровый кран.
+#  Транспорт — Wi-Fi и родной API ESPHome: в HA видны ВСЕ сущности,
+#  включая кнопки и выключатель крана (в отличие от Zigbee-версии).
+#
+#  Проверено: ESPHome 2026.6.5, `esphome config` -> valid.
+#  Полная сборка в песочнице невозможна (CDN PlatformIO закрыты).
+#
+#  ВАРИАНТЫ ПОДКЛЮЧЕНИЯ КРАНА — см. комментарии у switch/valve ниже.
+# =====================================================================
+esphome:
+  name: watermet-wifi
+  friendly_name: Water Meter + Valve
+
+esp8266:
+  board: d1_mini
+  restore_from_flash: true     # состояния (в т.ч. кран) переживают ребут
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Точка доступа на случай потери сети — перепрошивка/настройка без USB.
+  ap:
+    ssid: "Watermet Fallback"
+    password: "watermet123"
+
+captive_portal:
+
+api:
+  # После первого подключения сгенерируйте ключ: esphome ... (опционально)
+
+ota:
+  - platform: esphome
+
+substitutions:
+  # Бетар Ду15: обычно 1 импульс = 10 л => 100 имп/м3. СВЕРЬТЕ С ПАСПОРТОМ!
+  litres_per_m3_pulse: "0.01"
+  cold_pin: GPIO5              # D1
+  hot_pin: GPIO4               # D2
+  valve_pin: GPIO13            # D7 -> реле/MOSFET крана
+
+sensor:
+  # ---------------- 1. ХВС ----------------
+  - platform: pulse_counter
+    pin:
+      number: ${cold_pin}
+      mode: INPUT_PULLUP
+      inverted: true
+    id: cold_water_counter
+    name: "Cold Water"
+    update_interval: 60s
+    accuracy_decimals: 1
+    internal_filter: 150ms     # антидребезг геркона (на ESP8266 PCNT нет)
+    total:
+      id: cold_water_total
+      name: "Cold Water Total"
+      unit_of_measurement: "m³"
+      device_class: water
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: ${litres_per_m3_pulse}
+
+  # ---------------- 2. ГВС ----------------
+  - platform: pulse_counter
+    pin:
+      number: ${hot_pin}
+      mode: INPUT_PULLUP
+      inverted: true
+    id: hot_water_counter
+    name: "Hot Water"
+    update_interval: 60s
+    accuracy_decimals: 1
+    internal_filter: 150ms
+    total:
+      id: hot_water_total
+      name: "Hot Water Total"
+      unit_of_measurement: "m³"
+      device_class: water
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: ${litres_per_m3_pulse}
+
+# =====================================================================
+#  ВЫХОД НА КРАН. Базовый вариант — ОДИН выход: реле/MOSFET, состояние
+#  выхода = положение крана (или «сигнал закрытия» для электромагнитного
+#  клапана / драйвера с уровнем).
+#
+#  ЕСЛИ кран с ПОЛОПЕРЕКЛЮЧЕНИЕМ через одно реле — этот же switch
+#  работает как есть; тогда обычно нужен ТАЙМ-ПРИВОД: раскомментируйте
+#  on_turn_on ниже (15 с питания, потом_off — мотор упирается в упор).
+#
+#  ЕСЛИ у крана ДВА провода управления (открыть/закрыть отдельно) —
+#  замените этот блок на два gpio-switch с взаимной блокировкой:
+#    interlock: [valve_open]  и  interlock: [valve_close]
+# =====================================================================
+switch:
+  - platform: gpio
+    pin: ${valve_pin}
+    id: valve_switch
+    name: "Valve Power"
+    icon: mdi:valve
+    restore_mode: RESTORE_DEFAULT_OFF
+    # on_turn_on:
+    #   then:
+    #     - delay: 15s
+    #     - switch.turn_off: valve_switch
+
+button:
+  - platform: template
+    name: "Close Valve"
+    icon: mdi:valve-closed
+    on_press:
+      then:
+        - switch.turn_on: valve_switch
+
+  - platform: template
+    name: "Open Valve"
+    icon: mdi:valve-open
+    on_press:
+      then:
+        - switch.turn_off: valve_switch
+
+  - platform: template
+    name: "Reset Cold Pulses"
+    entity_category: config
+    on_press:
+      then:
+        - pulse_counter.set_total_pulses:
+            id: cold_water_counter
+            value: 0
+
+  - platform: template
+    name: "Reset Hot Pulses"
+    entity_category: config
+    on_press:
+      then:
+        - pulse_counter.set_total_pulses:
+            id: hot_water_counter
+            value: 0
