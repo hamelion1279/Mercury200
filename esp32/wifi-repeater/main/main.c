@@ -575,9 +575,10 @@ static void repeater_log_status(void)
 static void repeater_task(void *arg)
 {
     const TickType_t tick = pdMS_TO_TICKS(500);
-    int64_t next_scan_us = 0;
-    int64_t next_log_us = 0;
     bool led_blink = false;
+    /* Первое сканирование уже сделано в app_main — следующее не раньше, чем через RESCAN_PERIOD_S */
+    int64_t next_scan_us = esp_timer_get_time() + (int64_t)RESCAN_PERIOD_S * 1000000;
+    int64_t next_log_us = 0;
 
     for (;;) {
         EventBits_t bits = xEventGroupGetBits(s_ctx.events);

@@ -59,6 +59,28 @@ idf.py -p /dev/ttyUSB0 flash monitor      # для Windows: -p COM5
 
 Выйти из монитора — `Ctrl+]`.
 
+### Готовая прошивка (если не хочется собирать самому)
+
+В репозитории есть сборка в GitHub Actions (`.github/workflows/firmware.yml`,
+проект собирается сразу на ESP-IDF v5.5 и v6.x). Готовые файлы лежат в
+**Actions → последний запуск «ESP32-S3 firmware» → Artifacts**:
+
+* `esp32s3-wifi-repeater-merged.bin` — **единый образ**, прошивается целиком
+  по адресу `0x0` одной командой:
+
+  ```bash
+  esptool.py --chip esp32s3 write_flash 0x0 esp32s3-wifi-repeater-merged.bin
+  ```
+
+  (это же подходит для «ESP32 Flash Download Tool» из Windows: адрес `0x0`);
+* `wifi-repeater.bin` + `bootloader.bin` + `partition-table.bin` — образы
+  по отдельности, если прошивать через `idf.py flash`.
+
+  Важно: в артефакте — прошивка с настройками по умолчанию
+  (внешняя сеть `MyWiFi`, своя сеть с паролем `repeater-ext`). Чтобы репитер
+  подключался к **вашей** сети, задайте SSID и пароль в `menuconfig`
+  и соберите прошивку сами (шаги 3–4 выше).
+
 ## 3. Основные настройки
 
 Все параметры находятся в `menuconfig` → **Wi-Fi repeater (ESP32-S3)**.
@@ -152,8 +174,13 @@ I (63000) repeater: Статус: внешняя сеть "MyWiFi", канал 6
   (переподключение с задержкой, поиск сети раз в 30 с, индикация).
 * `main/Kconfig.projbuild` — все настройки `menuconfig`.
 * `sdkconfig.defaults` — то, что обязательно для работы репитера
-  (`CONFIG_LWIP_IP_FORWARD=y`, `CONFIG_LWIP_IPV4_NAPT=y`) и немного
-  увеличенные буферы Wi-Fi.
+  (`CONFIG_LWIP_IP_FORWARD=y`, `CONFIG_LWIP_IPV4_NAPT=y`), чуть увеличенные
+  буферы Wi-Fi и размер flash 4 МБ.
+* `partitions.csv` — таблица разделов: приложению отдано 2 МБ (прошивка
+  занимает ~780 КБ, так что в 1 МБ «по умолчанию» она бы почти не влезла).
+
+Сама прошивка занимает около 780 КБ, свободного места в разделе приложения —
+больше половины, есть куда добавлять свой код.
 
 Сборка автоматически проверяется в GitHub Actions
 (`.github/workflows/firmware.yml`) сразу для ESP-IDF v5.5 и v6.x, там же
@@ -181,3 +208,7 @@ Key points: single 2.4 GHz radio — the SoftAP channel follows the station's
 uplink channel and throughput is roughly halved; broadcast/mDNS and IPv6 are
 not forwarded; make sure the AP subnet (`REPEATER_AP_IP`, default
 `192.168.4.1/24`) does not collide with the uplink subnet.
+
+CI (`.github/workflows/firmware.yml`) builds the project with ESP-IDF v5.5 and
+v6.x and uploads firmware binaries as artifacts, including a single merged
+image (`esp32s3-wifi-repeater-merged.bin`) that can be flashed at offset `0x0`.
