@@ -1,0 +1,50 @@
+name: ESP32-S3 firmware
+
+on:
+  push:
+    paths:
+      - 'esp32/wifi-repeater/**'
+      - '.github/workflows/firmware.yml'
+      - '!**/*.md'
+  pull_request:
+    paths:
+      - 'esp32/wifi-repeater/**'
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build (ESP-IDF ${{ matrix.idf }})
+    runs-on: ubuntu-latest
+    container: espressif/idf:${{ matrix.idf }}
+    strategy:
+      fail-fast: false
+      matrix:
+        idf: [release-v5.5, release-v6.1]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build repeater firmware
+        working-directory: esp32/wifi-repeater
+        run: |
+          idf.py set-target esp32s3
+          idf.py build
+
+      - name: Merge into single flashable image
+        if: matrix.idf == 'release-v5.5'
+        working-directory: esp32/wifi-repeater/build
+        run: |
+          esptool.py --chip esp32s3 merge_bin -o ../esp32s3-wifi-repeater-merged.bin @flash_args
+          ls -l ../esp32s3-wifi-repeater-merged.bin
+
+      - name: Upload firmware binaries
+        if: matrix.idf == 'release-v5.5'
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-wifi-repeater-firmware
+          path: |
+            esp32/wifi-repeater/esp32s3-wifi-repeater-merged.bin
+            esp32/wifi-repeater/build/wifi-repeater.bin
+            esp32/wifi-repeater/build/bootloader/bootloader.bin
+            esp32/wifi-repeater/build/partition_table/partition-table.bin
+          if-no-files-found: error
