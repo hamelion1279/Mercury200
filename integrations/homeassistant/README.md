@@ -110,6 +110,8 @@ HA_URL=http://localhost:8765 HA_TOKEN=demo python3 integrations/homeassistant/ha
 ```
 
 Откройте <http://localhost:8765> — таблица сущностей и опубликованные MQTT-сообщения.
+Заглушка слушает `0.0.0.0`, отвечает на `HEAD` (health-check/proxy) и не ставит
+`X-Frame-Options`, поэтому открывается во встроенном превью и за любым reverse-proxy.
 
 ---
 
