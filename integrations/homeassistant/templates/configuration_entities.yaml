@@ -1,0 +1,51 @@
+# Вставьте этот блок в configuration.yaml, затем:
+#   Developer tools -> YAML -> "Check configuration" -> перезапуск Home Assistant
+# (или перезагрузите только шаблоны: Developer tools -> YAML -> Template entities)
+
+input_boolean:
+  living_room_light:
+    name: Living room light
+
+input_number:
+  living_room_brightness:
+    name: Living room brightness
+    min: 0
+    max: 255
+    step: 1
+    initial: 180
+  bedroom_temperature:
+    name: Bedroom temperature
+    min: -30
+    max: 60
+    step: 0.1
+    unit_of_measurement: "°C"
+    initial: 21.5
+
+template:
+  - light:
+      - name: "Living room"          # -> light.living_room
+        unique_id: living_room_light
+        state: "{{ is_state('input_boolean.living_room_light', 'on') }}"
+        level: "{{ states('input_number.living_room_brightness') | int(0) }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.living_room_light
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.living_room_light
+        set_level:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.living_room_brightness
+            data:
+              value: "{{ brightness }}"
+  - sensor:
+      - name: "Temperature bedroom"  # -> sensor.temperature_bedroom
+        unique_id: temperature_bedroom
+        state: "{{ states('input_number.bedroom_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+
